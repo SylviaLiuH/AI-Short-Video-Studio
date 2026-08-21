@@ -1,67 +1,106 @@
 import streamlit as st
 
+from ollama_service import generate_video_plan
+
+
+# =========================
+# 页面配置
+# =========================
 st.set_page_config(
     page_title="AI Short Video Studio",
     page_icon="🎬",
     layout="wide",
 )
 
-st.title("🎬 AI Short Video Studio")
-st.caption("Turn one idea into a short-video concept.")
 
+# =========================
+# 页面标题
+# =========================
+st.title("🎬 AI Short Video Studio")
+st.caption("把一个简单的创意，快速变成短视频脚本与分镜方案。")
+
+
+# =========================
+# 用户输入
+# =========================
 topic = st.text_area(
     "你想做什么内容？",
-    placeholder="例如：一个女孩捡到了一只会说话的黑猫",
-    height=100,
+    placeholder="例如：一个机器人第一次看到大海",
+    height=120,
 )
 
-style = st.selectbox(
-    "视频风格",
-    ["悬疑", "治愈", "搞笑", "奇幻", "情绪故事"],
-)
+col1, col2 = st.columns(2)
 
-duration = st.selectbox(
-    "视频时长",
-    ["30 秒", "45 秒", "60 秒"],
-)
+with col1:
+    style = st.selectbox(
+        "视频风格",
+        [
+            "悬疑",
+            "治愈",
+            "搞笑",
+            "奇幻",
+            "情绪故事",
+        ],
+    )
 
-if st.button("✨ 生成视频方案", type="primary"):
+with col2:
+    duration = st.selectbox(
+        "视频时长",
+        [
+            "30 秒",
+            "45 秒",
+            "60 秒",
+        ],
+    )
+
+
+# =========================
+# 生成按钮
+# =========================
+if st.button(
+    "✨ 生成视频方案",
+    type="primary",
+    use_container_width=True,
+):
+
+    # 没有输入主题
     if not topic.strip():
         st.warning("先输入一个主题～")
+
     else:
-        st.subheader("标题")
-        st.write("《她捡回家的黑猫，竟然知道她所有的秘密》")
+        try:
+            with st.spinner("AI 正在生成短视频方案..."):
 
-        st.subheader("Hook")
-        st.info("她只是捡了一只流浪猫。直到那天晚上，它突然叫出了她的名字。")
+                result = generate_video_plan(
+                    topic=topic,
+                    style=style,
+                    duration=duration,
+                )
 
-        st.subheader("短视频脚本")
-        st.write(
-            """
-            雨夜里，她在楼下发现了一只浑身湿透的黑猫。
+            # =========================
+            # 输出区域
+            # =========================
+            st.success("生成完成！")
 
-            她把猫抱回家，擦干身体，给它准备了一小碗食物。
+            st.divider()
 
-            凌晨两点，她被客厅里的声音惊醒。
+            st.subheader("🎬 AI 生成结果")
 
-            “别开那扇门。”
+            st.markdown(result)
 
-            她愣住了。
+        except Exception as e:
+            st.error("生成失败，请检查 Ollama 是否正在运行。")
 
-            房间里只有她，和那只正在盯着她看的黑猫。
-            """
-        )
+            with st.expander("查看错误信息"):
+                st.code(str(e))
 
-        st.subheader("🎞️ 六个分镜")
 
-        scenes = [
-            "镜头 1：雨夜街道，女孩发现蜷缩在纸箱里的黑猫。",
-            "镜头 2：女孩抱着湿漉漉的黑猫回到公寓。",
-            "镜头 3：暖黄色灯光下，黑猫安静地吃东西。",
-            "镜头 4：凌晨两点，女孩突然从床上醒来。",
-            "镜头 5：黑暗客厅中，黑猫抬头看着女孩。",
-            "镜头 6：门把手缓缓转动，黑猫说：别开门。",
-        ]
+# =========================
+# 页面底部说明
+# =========================
+st.divider()
 
-        for scene in scenes:
-            st.write(scene)
+st.caption(
+    "当前版本使用本地 Ollama + Qwen3 生成内容，"
+    "无需云端 LLM API 额度。"
+)
