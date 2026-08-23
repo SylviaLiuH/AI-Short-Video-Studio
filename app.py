@@ -55,7 +55,7 @@ if st.button(
 
     else:
         try:
-            with st.spinner("AI 正在生成结构化短视频方案..."):
+            with st.spinner("AI 正在生成短视频方案和视觉 Prompt..."):
                 result = generate_video_plan(
                     topic=topic,
                     style=style,
@@ -87,21 +87,32 @@ if st.button(
                 visual = scene.get("visual", "")
                 voiceover = scene.get("voiceover", "")
                 sound = scene.get("sound", "")
+                image_prompt = scene.get("image_prompt", "")
+                video_prompt = scene.get("video_prompt", "")
 
                 with st.container(border=True):
                     st.markdown(f"### 镜头 {scene_number}")
 
-                    st.markdown("**画面**")
+                    st.markdown("**🎨 画面**")
                     st.write(visual)
 
-                    st.markdown("**旁白**")
+                    st.markdown("**🎙️ 旁白**")
                     st.write(voiceover)
 
-                    st.markdown("**音效 / BGM**")
+                    st.markdown("**🎵 音效 / BGM**")
                     st.write(sound)
 
+                    st.markdown("**🖼️ Image Prompt**")
+                    st.code(image_prompt, language="text")
+
+                    st.markdown("**🎥 Video Prompt**")
+                    st.code(video_prompt, language="text")
+
         except Exception as e:
-            st.error("生成失败，请检查 Ollama 是否正在运行，或 AI 返回格式是否正确。")
+            st.error(
+                "生成失败，请检查 Ollama 是否正在运行，"
+                "或 AI 返回格式是否正确。"
+            )
 
             with st.expander("查看错误信息"):
                 st.code(str(e))
@@ -110,5 +121,5 @@ if st.button(
 st.divider()
 
 st.caption(
-    "当前版本：本地 Ollama + Qwen3 4B + JSON 结构化输出"
+    "当前版本：V0.4 · Ollama + Qwen3 4B + Image Prompt + Video Prompt"
 )
