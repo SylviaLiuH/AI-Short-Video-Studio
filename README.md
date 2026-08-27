@@ -13,6 +13,9 @@
 - 每个分镜的音效 / BGM 建议
 - 每个分镜对应的 Image Prompt
 - 每个分镜对应的 Video Prompt
+- 完整 JSON 导出
+- 脚本文案导出
+- 分镜 Markdown 导出
 
 当前版本使用 **Ollama + Qwen3 4B** 在本地运行，无需依赖云端 LLM API 额度。
 
@@ -61,6 +64,17 @@
 - [x] Streamlit 展示视觉 Prompt
 - [x] 为后续 AI 图片 / 视频生成提供结构化输入
 
+### ✅ V0.5 — Export
+
+- [x] 导出完整 JSON
+- [x] 导出脚本文案
+- [x] 导出完整分镜 Markdown
+- [x] 保存用户主题
+- [x] 保存视频风格
+- [x] 保存视频时长
+- [x] 使用 Session State 保存生成结果
+- [x] 页面支持三个下载按钮
+
 ---
 
 ## 🧠 当前 AI Workflow
@@ -103,6 +117,10 @@ Image Prompt / Video Prompt
 
 Streamlit 页面展示
 
+↓
+
+JSON / Script / Storyboard 导出
+
 Ollama 默认运行在：
 
 `http://127.0.0.1:11434`
@@ -127,6 +145,12 @@ Ollama 默认运行在：
 - `image_prompt`
 - `video_prompt`
 
+导出的 JSON 还包含：
+
+- `topic`
+- `style`
+- `duration`
+
 程序可以分别读取：
 
 `result["title"]`
@@ -147,6 +171,67 @@ Ollama 默认运行在：
 
 ---
 
+## 📤 当前导出能力
+
+项目当前支持三种导出格式。
+
+### 完整 JSON
+
+文件名：
+
+`video_plan.json`
+
+包含：
+
+- Metadata
+- Topic
+- Style
+- Duration
+- Title
+- Hook
+- Script
+- Scenes
+- Image Prompt
+- Video Prompt
+
+主要用于后续程序继续处理。
+
+### 脚本文案
+
+文件名：
+
+`video_script.txt`
+
+包含：
+
+- 标题
+- Hook
+- 完整脚本
+
+适合人工修改、配音和内容发布准备。
+
+### 完整分镜
+
+文件名：
+
+`storyboard.md`
+
+包含：
+
+- 标题
+- Hook
+- 完整脚本
+- 六个分镜
+- Visual
+- Voiceover
+- Sound / BGM
+- Image Prompt
+- Video Prompt
+
+适合查看完整短视频制作方案。
+
+---
+
 ## 🛠 技术栈
 
 当前使用：
@@ -163,10 +248,10 @@ Ollama 默认运行在：
 后续计划使用：
 
 - AI Image Generation
-- AI Video Generation
 - TTS
 - FFmpeg
 - 自动字幕
+- AI Video Generation
 - AI Workflow
 - Public Deployment
 
@@ -195,6 +280,10 @@ Streamlit Web 应用入口。
 - 选择视频时长
 - 调用本地 AI 服务
 - 展示结构化生成结果
+- 保存 Session State
+- 导出 JSON
+- 导出 Script
+- 导出 Storyboard
 
 ### ollama_service.py
 
@@ -318,6 +407,10 @@ Image Prompt
 
 Video Prompt
 
+↓
+
+JSON / Script / Storyboard 导出
+
 ---
 
 ## 🎯 项目目标
@@ -340,7 +433,7 @@ Image Prompt / Video Prompt
 
 ↓
 
-AI 图片 / AI 视频
+AI 图片
 
 ↓
 
@@ -352,7 +445,7 @@ TTS 配音
 
 ↓
 
-视频自动合成
+FFmpeg 视频合成
 
 ↓
 
@@ -379,35 +472,51 @@ TTS 配音
 ### ✅ 已完成
 
 - [x] V0.1 Streamlit 页面原型
-- [x] V0.2 本地 Ollama / Qwen3 接入
+- [x] V0.2 Ollama + Qwen3 本地 LLM
 - [x] V0.3 JSON Structured Output
 - [x] V0.4 Image Prompt / Video Prompt
-
-### 🔜 V0.5 — 导出功能
-
-- [ ] 导出完整 JSON
-- [ ] 导出脚本文案
-- [ ] 导出分镜数据
-- [ ] Streamlit 下载按钮
+- [x] V0.5 Export
 
 ### 🔜 V0.6 — AI 图片生成
 
-- [ ] 将 Image Prompt 发送给图片生成模型
-- [ ] 单个分镜生成图片
-- [ ] 批量生成 6 张分镜图
+- [ ] 接入 AI 图片生成能力
+- [ ] 使用 Image Prompt 生成图片
+- [ ] 至少成功生成一个真实分镜图片
 - [ ] 保存生成图片
+- [ ] 在 Streamlit 页面展示图片
 
-### 🔜 后续版本
+### 🔜 V0.7 — Batch Image Generation
 
-- [ ] AI 视频生成
-- [ ] TTS AI 配音
-- [ ] 自动字幕
-- [ ] FFmpeg 视频合成
-- [ ] 图片 / 视频 / 配音 / 字幕自动化 Workflow
-- [ ] 一键生成完整短视频
-- [ ] 公网部署
-- [ ] 内容模板系统
-- [ ] 批量内容生产
+- [ ] 自动处理六个 Image Prompt
+- [ ] 批量生成六张分镜图片
+- [ ] 自动命名图片
+- [ ] 保存图片路径
+
+### 🔜 V0.8 — TTS
+
+- [ ] Script / Voiceover 转语音
+- [ ] 保存音频文件
+- [ ] Streamlit 播放音频
+
+### 🔜 V0.9 — Subtitle + Video Composition
+
+- [ ] 生成字幕文件
+- [ ] 接入 FFmpeg
+- [ ] 图片 + 音频 + 字幕合成
+- [ ] 输出 MP4
+
+### 🔜 V1.0 — Complete Workflow
+
+- [ ] Topic
+- [ ] Script
+- [ ] Storyboard
+- [ ] Image Prompt
+- [ ] Images
+- [ ] Voice
+- [ ] Subtitle
+- [ ] Video
+- [ ] Export
+- [ ] 完整 Workflow 跑通
 
 ---
 
@@ -433,12 +542,12 @@ TTS 配音
 
 ## 📌 当前版本
 
-**V0.4**
+**V0.5**
 
 当前状态：
 
-> ✅ Streamlit + Ollama + Qwen3 4B + JSON Structured Output + Image Prompt + Video Prompt 已跑通。
+> ✅ Streamlit + Ollama + Qwen3 4B + JSON Structured Output + Image Prompt + Video Prompt + Export 已跑通。
 
 下一步：
 
-> 📤 增加生成结果导出能力，为后续 AI 图片生成准备输入数据。
+> 🖼️ 接入 AI 图片生成能力，让至少一个分镜真正生成图片。
