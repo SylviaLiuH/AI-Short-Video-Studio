@@ -1,6 +1,6 @@
 # 🎬 AI Short Video Studio
 
-一个基于 **Python + Streamlit + Ollama** 的 AI 短视频创作工具。
+一个基于 **Python + Streamlit + Ollama + Stable Diffusion** 的 AI 短视频创作工具。
 
 用户输入主题、视频风格和时长，即可自动生成：
 
@@ -16,8 +16,11 @@
 - 完整 JSON 导出
 - 脚本文案导出
 - 分镜 Markdown 导出
+- 使用本地 Stable Diffusion 生成真实图片
 
-当前版本使用 **Ollama + Qwen3 4B** 在本地运行，无需依赖云端 LLM API 额度。
+当前文本生成使用 **Ollama + Qwen3 4B**。
+
+当前图片生成使用 **Stable Diffusion 1.5 + PyTorch + CUDA + NVIDIA GPU**。
 
 ---
 
@@ -75,6 +78,17 @@
 - [x] 使用 Session State 保存生成结果
 - [x] 页面支持三个下载按钮
 
+### ✅ V0.6 — Local AI Image Generation
+
+- [x] 安装 CUDA 版本 PyTorch
+- [x] Python 成功调用 NVIDIA GPU
+- [x] 接入 Hugging Face Diffusers
+- [x] 接入 Stable Diffusion 1.5
+- [x] 使用 Image Prompt 生成真实图片
+- [x] 图片自动保存到 outputs/images
+- [x] 单分镜图片生成测试成功
+- [x] 本地 GPU 生图 Workflow 跑通
+
 ---
 
 ## 🧠 当前 AI Workflow
@@ -121,9 +135,78 @@ Streamlit 页面展示
 
 JSON / Script / Storyboard 导出
 
-Ollama 默认运行在：
+↓
+
+Image Prompt
+
+↓
+
+Stable Diffusion 1.5
+
+↓
+
+PyTorch + CUDA
+
+↓
+
+NVIDIA GPU
+
+↓
+
+生成真实图片
+
+---
+
+## 🤖 本地 AI 模型
+
+### 文本生成
+
+当前模型：
+
+`qwen3:4b`
+
+运行方式：
+
+`Ollama`
+
+Ollama 默认 Local API：
 
 `http://127.0.0.1:11434`
+
+主要用于：
+
+- Title
+- Hook
+- Script
+- Storyboard
+- Image Prompt
+- Video Prompt
+
+### 图片生成
+
+当前模型：
+
+`runwayml/stable-diffusion-v1-5`
+
+运行框架：
+
+- PyTorch
+- Diffusers
+- Transformers
+- Accelerate
+- CUDA
+
+当前测试设备：
+
+`NVIDIA GeForce RTX 3060 Laptop GPU`
+
+显存：
+
+`6 GB VRAM`
+
+当前测试图片尺寸：
+
+`512 × 512`
 
 ---
 
@@ -167,7 +250,15 @@ Ollama 默认运行在：
 
 `scene["video_prompt"]`
 
-这些结构化字段将作为后续 AI 图片生成、视频生成、配音和自动剪辑模块的输入。
+这些结构化字段将作为后续：
+
+- AI 图片生成
+- AI 视频生成
+- TTS 配音
+- 自动字幕
+- 视频合成
+
+模块的输入。
 
 ---
 
@@ -232,6 +323,48 @@ Ollama 默认运行在：
 
 ---
 
+## 🖼️ 图片生成
+
+图片生成逻辑位于：
+
+`image_service.py`
+
+主要流程：
+
+Image Prompt
+
+↓
+
+Stable Diffusion Pipeline
+
+↓
+
+PyTorch
+
+↓
+
+CUDA
+
+↓
+
+NVIDIA GPU
+
+↓
+
+PNG Image
+
+默认输出目录：
+
+`outputs/images/`
+
+生成文件示例：
+
+`scene_1_20260827_142124.png`
+
+当前已经成功完成单张图片生成测试。
+
+---
+
 ## 🛠 技术栈
 
 当前使用：
@@ -242,15 +375,22 @@ Ollama 默认运行在：
 - JSON
 - Ollama
 - Qwen3 4B
+- PyTorch
+- CUDA
+- Diffusers
+- Transformers
+- Accelerate
+- Safetensors
+- Pillow
+- Stable Diffusion 1.5
 - Git
 - GitHub
 
 后续计划使用：
 
-- AI Image Generation
 - TTS
+- Subtitle
 - FFmpeg
-- 自动字幕
 - AI Video Generation
 - AI Workflow
 - Public Deployment
@@ -261,13 +401,17 @@ Ollama 默认运行在：
 
 AI-Short-Video-Studio/
 
-├── app.py  
-├── ollama_service.py  
-├── test_ollama.py  
-├── test_api.py  
-├── README.md  
-├── .gitignore  
-└── .env  
+├── app.py
+├── ollama_service.py
+├── image_service.py
+├── test_ollama.py
+├── test_api.py
+├── test_image.py
+├── README.md
+├── .gitignore
+├── .env
+└── outputs/
+    └── images/
 
 ### app.py
 
@@ -291,14 +435,22 @@ Streamlit Web 应用入口。
 
 负责：
 
-Python  
-↓  
-Ollama Local API  
-↓  
-Qwen3 4B  
-↓  
-JSON Structured Output  
-↓  
+Python
+
+↓
+
+Ollama Local API
+
+↓
+
+Qwen3 4B
+
+↓
+
+JSON Structured Output
+
+↓
+
 Python Dictionary
 
 并生成：
@@ -310,6 +462,34 @@ Python Dictionary
 - Image Prompt
 - Video Prompt
 
+### image_service.py
+
+本地图片生成模块。
+
+负责：
+
+Image Prompt
+
+↓
+
+Stable Diffusion 1.5
+
+↓
+
+PyTorch + CUDA
+
+↓
+
+NVIDIA GPU
+
+↓
+
+PNG Image
+
+图片默认保存到：
+
+`outputs/images/`
+
 ### test_ollama.py
 
 用于测试：
@@ -318,17 +498,25 @@ Python Dictionary
 
 是否可以正常连接。
 
+### test_image.py
+
+用于测试：
+
+`Python → Stable Diffusion → CUDA → NVIDIA GPU → PNG`
+
+是否可以正常生成真实图片。
+
 ### test_api.py
 
 用于测试云端 LLM API。
 
-当前项目主要使用本地 Ollama，因此不依赖云端 LLM API 额度。
+当前项目主要使用本地 Ollama，因此文本生成不依赖云端 LLM API 额度。
 
 ---
 
 ## 🚀 本地运行
 
-### 1. 安装 Python 依赖
+### 1. 安装基础依赖
 
 运行：
 
@@ -340,31 +528,75 @@ Python Dictionary
 
 `ollama --version`
 
-### 3. 下载并运行本地模型
+### 3. 下载并运行本地文本模型
 
 当前使用：
 
 `ollama run qwen3:4b`
 
-首次运行时 Ollama 会自动下载模型。
+### 4. 安装 CUDA 版本 PyTorch
 
-模型可以正常回复后，可以输入：
+项目图片生成需要支持 CUDA 的 PyTorch。
 
-`/bye`
+安装完成后可以使用 Python 检查：
 
-退出命令行聊天。
+`torch.cuda.is_available()`
 
-Ollama 服务仍然可以继续在后台提供 Local API。
+返回：
 
-### 4. 启动项目
+`True`
 
-在项目根目录运行：
+即表示 CUDA 可用。
+
+### 5. 安装图片生成依赖
+
+需要：
+
+- diffusers
+- transformers
+- accelerate
+- safetensors
+- pillow
+
+### 6. 测试图片生成
+
+运行：
+
+`py test_image.py`
+
+成功后会在：
+
+`outputs/images/`
+
+生成 PNG 图片。
+
+### 7. 启动 Streamlit
+
+运行：
 
 `py -m streamlit run app.py`
 
 浏览器访问：
 
 `http://localhost:8501`
+
+---
+
+## ⚠️ Hugging Face 下载说明
+
+Stable Diffusion 模型首次运行时需要从 Hugging Face 下载模型文件。
+
+首次下载文件较大，属于正常情况。
+
+模型下载完成后会缓存在本机，后续运行通常无需重新完整下载。
+
+如果 Hugging Face Xet 下载出现 CAS / File Reconstruction 错误，可以在当前 PowerShell 会话中设置：
+
+`$env:HF_HUB_DISABLE_XET="1"`
+
+然后重新运行：
+
+`py test_image.py`
 
 ---
 
@@ -379,7 +611,7 @@ Ollama 服务仍然可以继续在后台提供 Local API。
 - 视频风格：奇幻
 - 视频时长：30 秒
 
-系统自动生成：
+系统生成：
 
 标题
 
@@ -410,6 +642,14 @@ Video Prompt
 ↓
 
 JSON / Script / Storyboard 导出
+
+↓
+
+Stable Diffusion
+
+↓
+
+真实分镜图片
 
 ---
 
@@ -457,8 +697,10 @@ FFmpeg 视频合成
 
 - Vibe Coding
 - LLM Application Development
+- Local LLM
+- Local AI Image Generation
+- GPU / CUDA
 - API 调用
-- Local AI Deployment
 - JSON Structured Output
 - Prompt Engineering
 - AI Workflow
@@ -476,46 +718,36 @@ FFmpeg 视频合成
 - [x] V0.3 JSON Structured Output
 - [x] V0.4 Image Prompt / Video Prompt
 - [x] V0.5 Export
+- [x] V0.6 Local AI Image Generation
 
-### 🔜 V0.6 — AI 图片生成
+### 🔜 V0.7 — Streamlit Image Generation
 
-- [ ] 接入 AI 图片生成能力
-- [ ] 使用 Image Prompt 生成图片
-- [ ] 至少成功生成一个真实分镜图片
-- [ ] 保存生成图片
-- [ ] 在 Streamlit 页面展示图片
+- [ ] 将 image_service 接入 Streamlit
+- [ ] 每个分镜提供生成图片功能
+- [ ] 在网页中展示生成结果
+- [ ] 保存生成图片路径
+- [ ] 优化图片生成速度
 
-### 🔜 V0.7 — Batch Image Generation
+### 🔜 V0.8 — Batch Image Generation
 
 - [ ] 自动处理六个 Image Prompt
 - [ ] 批量生成六张分镜图片
 - [ ] 自动命名图片
-- [ ] 保存图片路径
+- [ ] 管理图片路径
 
-### 🔜 V0.8 — TTS
+### 🔜 V0.9 — TTS + Subtitle
 
-- [ ] Script / Voiceover 转语音
+- [ ] Voiceover 转语音
 - [ ] 保存音频文件
+- [ ] 生成字幕文件
 - [ ] Streamlit 播放音频
 
-### 🔜 V0.9 — Subtitle + Video Composition
+### 🔜 V1.0 — Video Composition
 
-- [ ] 生成字幕文件
 - [ ] 接入 FFmpeg
 - [ ] 图片 + 音频 + 字幕合成
 - [ ] 输出 MP4
-
-### 🔜 V1.0 — Complete Workflow
-
-- [ ] Topic
-- [ ] Script
-- [ ] Storyboard
-- [ ] Image Prompt
-- [ ] Images
-- [ ] Voice
-- [ ] Subtitle
-- [ ] Video
-- [ ] Export
+- [ ] Topic → Script → Storyboard → Images → Voice → Subtitle → Video
 - [ ] 完整 Workflow 跑通
 
 ---
@@ -523,6 +755,8 @@ FFmpeg 视频合成
 ## 🔐 安全说明
 
 `.env` 已加入 `.gitignore`。
+
+`outputs/` 建议加入 `.gitignore`，避免大量生成图片进入 Git 仓库。
 
 请不要将以下内容上传到 GitHub：
 
@@ -532,22 +766,22 @@ FFmpeg 视频合成
 - Cookie
 - 其他敏感凭据
 
-当前主要 LLM 服务运行在本机：
+当前文本 LLM 服务主要运行在本机：
 
 `127.0.0.1:11434`
 
-文本和 Prompt 生成流程可以在本地完成。
+图片生成同样在本机 NVIDIA GPU 上执行。
 
 ---
 
 ## 📌 当前版本
 
-**V0.5**
+**V0.6**
 
 当前状态：
 
-> ✅ Streamlit + Ollama + Qwen3 4B + JSON Structured Output + Image Prompt + Video Prompt + Export 已跑通。
+> ✅ Streamlit + Ollama + Qwen3 4B + JSON Structured Output + Export + Stable Diffusion 1.5 + PyTorch + CUDA 本地图片生成已跑通。
 
 下一步：
 
-> 🖼️ 接入 AI 图片生成能力，让至少一个分镜真正生成图片。
+> 🖼️ 将本地 Stable Diffusion 生图能力正式接入 Streamlit，让分镜可以直接在网页中生成和展示图片。
