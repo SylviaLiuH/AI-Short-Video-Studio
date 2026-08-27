@@ -4,7 +4,6 @@ from pathlib import Path
 import streamlit as st
 
 from ollama_service import generate_video_plan
-from image_service import generate_scene_image
 
 
 # =========================
@@ -28,6 +27,19 @@ if "video_meta" not in st.session_state:
 
 if "scene_images" not in st.session_state:
     st.session_state.scene_images = {}
+
+
+# =========================
+# 图片生成
+# =========================
+def generate_scene_image_lazy(scene: dict) -> str:
+    """
+    点击生图按钮后再导入图片生成模块，
+    避免 Streamlit 打开页面时立即加载 PyTorch / Diffusers。
+    """
+    from image_service import generate_scene_image
+
+    return generate_scene_image(scene)
 
 
 # =========================
@@ -173,7 +185,7 @@ if st.button(
                 "duration": duration,
             }
 
-            # 新方案生成时清空旧图片
+            # 新方案生成后清空旧图片记录
             st.session_state.scene_images = {}
 
             st.success("生成完成！")
@@ -216,11 +228,131 @@ if result:
     st.write(result.get("script", ""))
 
     # -------------------------
-    # 分镜
+    # 分镜数据
     # -------------------------
-    st.subheader("🎞️ 六个分镜")
-
     scenes = result.get("scenes", [])
+
+    # =========================
+    # 批量图片生成
+    # =========================
+    st.divider()
+
+    st.subheader("🖼️ AI 分镜图片")
+
+    existing_image_count = 0
+
+    for scene in scenes:
+        scene_number = str(
+            scene.get("scene_number", "")
+        )
+
+        image_path = st.session_state.scene_images.get(
+            scene_number
+        )
+
+        if image_path and Path(image_path).exists():
+            existing_image_count += 1
+
+    st.caption(
+        f"当前已生成：{existing_image_count} / {len(scenes)} 张"
+    )
+
+    if st.button(
+        "🚀 一键生成全部分镜图片",
+        type="primary",
+        use_container_width=True,
+    ):
+        if not scenes:
+            st.warning("当前没有可生成的分镜。")
+
+        else:
+            progress_bar = st.progress(0)
+            status_text = st.empty()
+
+            errors = []
+
+            total_scenes = len(scenes)
+
+            for index, scene in enumerate(scenes):
+
+                scene_number = scene.get(
+                    "scene_number",
+                    index + 1,
+                )
+
+                image_key = str(scene_number)
+
+                existing_path = (
+                    st.session_state.scene_images.get(
+                        image_key
+                    )
+                )
+
+                # 已经生成且文件还存在，则跳过
+                if (
+                    existing_path
+                    and Path(existing_path).exists()
+                ):
+                    status_text.info(
+                        f"镜头 {scene_number} 已有图片，跳过。"
+                    )
+
+                else:
+                    try:
+                        status_text.info(
+                            f"RTX 3060 正在生成镜头 "
+                            f"{scene_number} / {total_scenes}..."
+                        )
+
+                        image_path = generate_scene_image_lazy(
+                            scene
+                        )
+
+                        st.session_state.scene_images[
+                            image_key
+                        ] = image_path
+
+                    except Exception as e:
+                        errors.append(
+                            (
+                                scene_number,
+                                str(e),
+                            )
+                        )
+
+                progress = (index + 1) / total_scenes
+
+                progress_bar.progress(
+                    progress
+                )
+
+            if errors:
+
+                status_text.warning(
+                    "批量生成完成，但部分镜头失败。"
+                )
+
+                with st.expander(
+                    "查看批量生成错误"
+                ):
+                    for scene_number, error in errors:
+                        st.markdown(
+                            f"**镜头 {scene_number}**"
+                        )
+                        st.code(error)
+
+            else:
+
+                status_text.success(
+                    "🎉 全部分镜图片生成完成！"
+                )
+
+    # =========================
+    # 六个分镜
+    # =========================
+    st.divider()
+
+    st.subheader("🎞️ 六个分镜")
 
     for scene in scenes:
 
@@ -286,20 +418,43 @@ if result:
             image_key = str(scene_number)
 
             # -------------------------
-            # 单分镜生成图片
+            # 单独生成 / 重新生成图片
             # -------------------------
+            current_image_path = (
+                st.session_state.scene_images.get(
+                    image_key
+                )
+            )
+
+            current_image_exists = (
+                current_image_path
+                and Path(current_image_path).exists()
+            )
+
+            if current_image_exists:
+                button_label = (
+                    f"🔄 重新生成镜头 {scene_number} 图片"
+                )
+            else:
+                button_label = (
+                    f"🖼️ 生成镜头 {scene_number} 图片"
+                )
+
             if st.button(
-                f"🖼️ 生成镜头 {scene_number} 图片",
+                button_label,
                 key=f"generate_image_{scene_number}",
                 use_container_width=True,
             ):
                 try:
 
                     with st.spinner(
-                        f"RTX 3060 正在生成镜头 {scene_number}..."
+                        f"RTX 3060 正在生成镜头 "
+                        f"{scene_number}..."
                     ):
-                        image_path = generate_scene_image(
-                            scene
+                        image_path = (
+                            generate_scene_image_lazy(
+                                scene
+                            )
                         )
 
                     st.session_state.scene_images[
@@ -322,10 +477,12 @@ if result:
                         st.code(str(e))
 
             # -------------------------
-            # 展示已生成图片
+            # 展示图片
             # -------------------------
-            image_path = st.session_state.scene_images.get(
-                image_key
+            image_path = (
+                st.session_state.scene_images.get(
+                    image_key
+                )
             )
 
             if image_path:
@@ -340,20 +497,31 @@ if result:
                         use_container_width=True,
                     )
 
-                    with open(path, "rb") as image_file:
+                    with open(
+                        path,
+                        "rb",
+                    ) as image_file:
 
                         st.download_button(
-                            label=f"⬇️ 下载镜头 {scene_number} 图片",
+                            label=(
+                                f"⬇️ 下载镜头 "
+                                f"{scene_number} 图片"
+                            ),
                             data=image_file.read(),
                             file_name=path.name,
                             mime="image/png",
-                            key=f"download_image_{scene_number}",
+                            key=(
+                                f"download_image_"
+                                f"{scene_number}"
+                            ),
                             use_container_width=True,
                         )
 
                 else:
+
                     st.warning(
-                        "图片路径存在记录，但文件已经不存在。"
+                        "图片路径存在记录，"
+                        "但对应文件已经不存在。"
                     )
 
 
@@ -367,7 +535,9 @@ if result:
     json_data = {
         "metadata": st.session_state.video_meta,
         "video_plan": result,
-        "generated_images": st.session_state.scene_images,
+        "generated_images": (
+            st.session_state.scene_images
+        ),
     }
 
     json_text = json.dumps(
@@ -384,7 +554,9 @@ if result:
         result
     )
 
-    download_col1, download_col2, download_col3 = st.columns(3)
+    download_col1, download_col2, download_col3 = (
+        st.columns(3)
+    )
 
     with download_col1:
 
@@ -423,7 +595,8 @@ if result:
 st.divider()
 
 st.caption(
-    "当前版本：V0.7 · "
+    "当前版本：V0.8 · "
     "Ollama + Qwen3 4B + Export + "
-    "Stable Diffusion 1.5 + CUDA + Streamlit Image Generation"
+    "Stable Diffusion 1.5 + CUDA + "
+    "Batch Image Generation"
 )

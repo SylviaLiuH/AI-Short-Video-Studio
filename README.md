@@ -18,6 +18,8 @@
 - 分镜 Markdown 导出
 - 使用本地 Stable Diffusion 生成真实图片
 - 在 Streamlit 页面中直接生成并展示分镜图片
+- 一键批量生成全部 6 张分镜图片
+- 单独重新生成某个镜头图片
 - 下载单张分镜图片
 
 当前文本生成使用：
@@ -106,6 +108,19 @@
 - [x] generated_images 写入导出 JSON
 - [x] 分镜到图片的 Web Workflow 跑通
 
+### ✅ V0.8 — Batch Image Generation
+
+- [x] 一键生成全部 6 个分镜图片
+- [x] 自动读取每个 Scene 的 Image Prompt
+- [x] 按顺序调用 Stable Diffusion 生图
+- [x] 使用同一个本地 Pipeline 连续生成图片
+- [x] 自动跳过已经生成的分镜
+- [x] 显示批量生成进度
+- [x] 自动保存图片路径
+- [x] Streamlit 展示全部分镜图片
+- [x] 支持单个镜头重新生成
+- [x] 六分镜批量图片 Workflow 跑通
+
 ---
 
 ## 🧠 当前 AI Workflow
@@ -154,39 +169,35 @@ JSON / Script / Storyboard 导出
 
 ↓
 
-用户点击某个分镜的「生成图片」
+一键生成全部分镜图片
 
 ↓
 
-Image Prompt
+Scene 1 → Stable Diffusion → PNG
 
 ↓
 
-Stable Diffusion 1.5
+Scene 2 → Stable Diffusion → PNG
 
 ↓
 
-PyTorch + CUDA
+Scene 3 → Stable Diffusion → PNG
 
 ↓
 
-NVIDIA GPU
+Scene 4 → Stable Diffusion → PNG
 
 ↓
 
-生成 PNG 图片
+Scene 5 → Stable Diffusion → PNG
 
 ↓
 
-保存到本地
+Scene 6 → Stable Diffusion → PNG
 
 ↓
 
-Streamlit 页面直接展示
-
-↓
-
-用户下载图片
+六张完整分镜视觉素材
 
 ---
 
@@ -206,7 +217,7 @@ Ollama 默认 Local API：
 
 `http://127.0.0.1:11434`
 
-主要用于：
+主要用于生成：
 
 - Title
 - Hook
@@ -241,6 +252,11 @@ Ollama 默认 Local API：
 
 `512 × 512`
 
+当前默认推理参数：
+
+- Inference Steps：25
+- Guidance Scale：7.5
+
 ---
 
 ## 📦 当前数据结构
@@ -271,7 +287,7 @@ Metadata 包含：
 
 - `generated_images`
 
-示例：
+例如：
 
 `generated_images["1"]`
 
@@ -279,7 +295,7 @@ Metadata 包含：
 
 这些结构化数据将作为后续：
 
-- 批量 AI 图片生成
+- AI 图片生成
 - AI 视频生成
 - TTS 配音
 - 自动字幕
@@ -392,18 +408,78 @@ PNG Image
 当前已经支持：
 
 - Python 独立测试生成图片
-- Streamlit 页面生成图片
-- Streamlit 页面展示图片
+- Streamlit 页面单分镜生成图片
+- Streamlit 页面展示生成图片
 - 下载单张生成图片
-- 保存图片路径到 Session State
+- 一键生成全部 6 张分镜图片
+- 跳过已经生成的图片
+- 单独重新生成某个镜头
+- 保存所有生成图片路径到 Session State
+
+---
+
+## 🚀 批量图片生成
+
+V0.8 增加了：
+
+`🚀 一键生成全部分镜图片`
+
+点击后程序会顺序处理：
+
+Scene 1
+
+↓
+
+Scene 2
+
+↓
+
+Scene 3
+
+↓
+
+Scene 4
+
+↓
+
+Scene 5
+
+↓
+
+Scene 6
+
+每个 Scene 都会读取对应的：
+
+`scene["image_prompt"]`
+
+然后调用本地 Stable Diffusion。
+
+生成成功后图片会自动保存到：
+
+`outputs/images/`
+
+批量生成过程中会显示：
+
+- 当前正在生成的镜头
+- 总体生成进度
+- 当前已生成图片数量
+- 失败镜头错误信息
+
+如果某个镜头已经存在图片，则批量生成时会自动跳过。
 
 ---
 
 ## 🌐 Streamlit 图片生成
 
-用户生成短视频方案后，每个分镜都会出现：
+用户生成短视频方案后，每个分镜都会出现图片生成按钮。
+
+没有图片时：
 
 `🖼️ 生成镜头 X 图片`
+
+已经有图片时：
+
+`🔄 重新生成镜头 X 图片`
 
 点击后：
 
@@ -416,7 +492,11 @@ PNG Image
 7. Streamlit 展示图片
 8. 提供下载按钮
 
-这样就不需要再单独运行 `test_image.py` 才能生成视觉素材。
+同时页面还提供：
+
+`🚀 一键生成全部分镜图片`
+
+用于批量处理全部 6 个分镜。
 
 ---
 
@@ -484,8 +564,11 @@ Streamlit Web 应用入口。
 - 导出 Script
 - 导出 Storyboard
 - 调用本地图片生成服务
+- 单独生成分镜图片
+- 批量生成全部分镜图片
 - 展示生成图片
 - 下载生成图片
+- 保存生成图片路径
 
 ### ollama_service.py
 
@@ -596,19 +679,19 @@ PNG Image
 
 项目图片生成需要支持 CUDA 的 PyTorch。
 
-安装完成后可以检查：
+安装完成后可以使用：
 
 `torch.cuda.is_available()`
 
-返回：
+如果返回：
 
 `True`
 
-即表示 CUDA 可用。
+即表示 CUDA 可以正常使用。
 
 ### 5. 安装图片生成依赖
 
-需要：
+需要安装：
 
 - diffusers
 - transformers
@@ -616,7 +699,21 @@ PNG Image
 - safetensors
 - pillow
 
-### 6. 测试图片生成
+例如：
+
+`py -m pip install diffusers transformers accelerate safetensors pillow`
+
+### 6. 测试 CUDA
+
+可以检查：
+
+`torch.cuda.get_device_name(0)`
+
+当前测试结果：
+
+`NVIDIA GeForce RTX 3060 Laptop GPU`
+
+### 7. 测试图片生成
 
 运行：
 
@@ -628,7 +725,7 @@ PNG Image
 
 生成 PNG 图片。
 
-### 7. 启动 Streamlit
+### 8. 启动 Streamlit
 
 当前 PowerShell 会话可以先设置：
 
@@ -662,7 +759,13 @@ Stable Diffusion 模型首次运行时需要从 Hugging Face 下载模型文件�
 
 `$env:HF_HUB_DISABLE_XET="1"`
 
-然后重新运行程序。
+然后重新运行：
+
+`py test_image.py`
+
+或：
+
+`py -m streamlit run app.py`
 
 ---
 
@@ -679,6 +782,12 @@ AI 图片默认保存到：
 `outputs/` 已加入 `.gitignore`。
 
 因此生成的大量图片不会默认上传到 GitHub。
+
+这样可以避免：
+
+- Git 仓库体积快速变大
+- 上传大量测试图片
+- 提交不必要的生成文件
 
 ---
 
@@ -723,7 +832,9 @@ Video Prompt
 
 ↓
 
-点击镜头图片生成按钮
+点击：
+
+`🚀 一键生成全部分镜图片`
 
 ↓
 
@@ -735,15 +846,19 @@ RTX 3060 GPU
 
 ↓
 
-真实分镜图片
+生成 6 张真实分镜图片
 
 ↓
 
-网页展示
+网页展示全部图片
 
 ↓
 
-图片下载
+单张图片下载
+
+↓
+
+JSON / Script / Storyboard 导出
 
 ---
 
@@ -814,16 +929,7 @@ FFmpeg 视频合成
 - [x] V0.5 Export
 - [x] V0.6 Local AI Image Generation
 - [x] V0.7 Streamlit Image Generation
-
-### 🔜 V0.8 — Batch Image Generation
-
-- [ ] 一键生成六个分镜图片
-- [ ] 自动处理六个 Image Prompt
-- [ ] 自动保存六张图片
-- [ ] 自动管理图片路径
-- [ ] Streamlit 展示全部分镜图片
-- [ ] 显示批量生成进度
-- [ ] 避免重复加载 Stable Diffusion Pipeline
+- [x] V0.8 Batch Image Generation
 
 ### 🔜 V0.9 — TTS + Subtitle
 
@@ -832,6 +938,7 @@ FFmpeg 视频合成
 - [ ] Streamlit 播放音频
 - [ ] 自动生成字幕文件
 - [ ] 输出 SRT
+- [ ] 为最终视频合成准备音频和字幕素材
 
 ### 🔜 V1.0 — Video Composition
 
@@ -848,6 +955,18 @@ FFmpeg 视频合成
 - [ ] Video
 - [ ] Export
 - [ ] 完整 Workflow 跑通
+
+### 🔮 后续计划
+
+- [ ] AI Video Generation
+- [ ] 使用 Video Prompt 生成动态镜头
+- [ ] 内容模板系统
+- [ ] 批量短视频生产
+- [ ] 公网部署
+- [ ] 更好的图片模型
+- [ ] Prompt 优化
+- [ ] 更丰富的视频风格
+- [ ] 一键生成完整短视频
 
 ---
 
@@ -875,12 +994,16 @@ FFmpeg 视频合成
 
 ## 📌 当前版本
 
-**V0.7**
+**V0.8**
 
 当前状态：
 
-> ✅ Streamlit + Ollama + Qwen3 4B + JSON Structured Output + Export + Stable Diffusion 1.5 + PyTorch + CUDA + Streamlit 单分镜图片生成已跑通。
+> ✅ Streamlit + Ollama + Qwen3 4B + JSON Structured Output + Export + Stable Diffusion 1.5 + PyTorch + CUDA + 六分镜批量图片生成已跑通。
+
+目前已经完成：
+
+> 主题 → 标题 → Hook → 脚本 → 六分镜 → Image Prompt / Video Prompt → 六张 AI 分镜图片 → 导出
 
 下一步：
 
-> 🖼️ 增加一键批量生成六个分镜图片功能，让整套 Storyboard 自动变成完整视觉素材。
+> 🔊 接入 TTS，让短视频旁白真正生成音频，并为字幕和最终视频合成准备素材。
