@@ -1,8 +1,10 @@
 import json
+from pathlib import Path
 
 import streamlit as st
 
 from ollama_service import generate_video_plan
+from image_service import generate_scene_image
 
 
 # =========================
@@ -24,13 +26,14 @@ if "video_plan" not in st.session_state:
 if "video_meta" not in st.session_state:
     st.session_state.video_meta = None
 
+if "scene_images" not in st.session_state:
+    st.session_state.scene_images = {}
+
 
 # =========================
 # 导出函数
 # =========================
 def build_script_text(result: dict) -> str:
-    """导出标题、Hook 和完整脚本。"""
-
     return f"""AI Short Video Studio
 
 标题：
@@ -45,12 +48,10 @@ def build_script_text(result: dict) -> str:
 
 
 def build_storyboard_markdown(result: dict) -> str:
-    """把所有分镜整理成 Markdown 文本。"""
-
     lines = [
         "# AI Short Video Storyboard",
         "",
-        f"## 标题",
+        "## 标题",
         result.get("title", ""),
         "",
         "## Hook",
@@ -104,7 +105,7 @@ def build_storyboard_markdown(result: dict) -> str:
 st.title("🎬 AI Short Video Studio")
 
 st.caption(
-    "把一个简单创意，快速变成结构化短视频方案。"
+    "把一个简单创意，快速变成结构化短视频方案和 AI 视觉素材。"
 )
 
 
@@ -143,31 +144,27 @@ with col2:
 
 
 # =========================
-# 生成按钮
+# 生成视频方案
 # =========================
 if st.button(
     "✨ 生成视频方案",
     type="primary",
     use_container_width=True,
 ):
-
     if not topic.strip():
         st.warning("先输入一个主题～")
 
     else:
         try:
-
             with st.spinner(
                 "AI 正在生成短视频方案和视觉 Prompt..."
             ):
-
                 result = generate_video_plan(
                     topic=topic,
                     style=style,
                     duration=duration,
                 )
 
-            # 保存到 session_state
             st.session_state.video_plan = result
 
             st.session_state.video_meta = {
@@ -176,10 +173,12 @@ if st.button(
                 "duration": duration,
             }
 
+            # 新方案生成时清空旧图片
+            st.session_state.scene_images = {}
+
             st.success("生成完成！")
 
         except Exception as e:
-
             st.error(
                 "生成失败，请检查 Ollama 是否正在运行，"
                 "或 AI 返回格式是否正确。"
@@ -282,6 +281,81 @@ if result:
                 language="text",
             )
 
+            st.markdown("**🤖 AI 图片生成**")
+
+            image_key = str(scene_number)
+
+            # -------------------------
+            # 单分镜生成图片
+            # -------------------------
+            if st.button(
+                f"🖼️ 生成镜头 {scene_number} 图片",
+                key=f"generate_image_{scene_number}",
+                use_container_width=True,
+            ):
+                try:
+
+                    with st.spinner(
+                        f"RTX 3060 正在生成镜头 {scene_number}..."
+                    ):
+                        image_path = generate_scene_image(
+                            scene
+                        )
+
+                    st.session_state.scene_images[
+                        image_key
+                    ] = image_path
+
+                    st.success(
+                        f"镜头 {scene_number} 图片生成成功！"
+                    )
+
+                except Exception as e:
+
+                    st.error(
+                        f"镜头 {scene_number} 图片生成失败。"
+                    )
+
+                    with st.expander(
+                        "查看图片生成错误"
+                    ):
+                        st.code(str(e))
+
+            # -------------------------
+            # 展示已生成图片
+            # -------------------------
+            image_path = st.session_state.scene_images.get(
+                image_key
+            )
+
+            if image_path:
+
+                path = Path(image_path)
+
+                if path.exists():
+
+                    st.image(
+                        str(path),
+                        caption=f"镜头 {scene_number}",
+                        use_container_width=True,
+                    )
+
+                    with open(path, "rb") as image_file:
+
+                        st.download_button(
+                            label=f"⬇️ 下载镜头 {scene_number} 图片",
+                            data=image_file.read(),
+                            file_name=path.name,
+                            mime="image/png",
+                            key=f"download_image_{scene_number}",
+                            use_container_width=True,
+                        )
+
+                else:
+                    st.warning(
+                        "图片路径存在记录，但文件已经不存在。"
+                    )
+
 
     # =========================
     # 导出区域
@@ -290,22 +364,22 @@ if result:
 
     st.subheader("📤 导出生成结果")
 
-    # 完整 JSON
+    json_data = {
+        "metadata": st.session_state.video_meta,
+        "video_plan": result,
+        "generated_images": st.session_state.scene_images,
+    }
+
     json_text = json.dumps(
-        {
-            "metadata": st.session_state.video_meta,
-            "video_plan": result,
-        },
+        json_data,
         ensure_ascii=False,
         indent=2,
     )
 
-    # 脚本文本
     script_text = build_script_text(
         result
     )
 
-    # 分镜 Markdown
     storyboard_text = build_storyboard_markdown(
         result
     )
@@ -349,7 +423,7 @@ if result:
 st.divider()
 
 st.caption(
-    "当前版本：V0.5 · "
-    "Ollama + Qwen3 4B + JSON Structured Output + "
-    "Image / Video Prompt + Export"
+    "当前版本：V0.7 · "
+    "Ollama + Qwen3 4B + Export + "
+    "Stable Diffusion 1.5 + CUDA + Streamlit Image Generation"
 )
