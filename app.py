@@ -34,15 +34,14 @@ if "scene_audio" not in st.session_state:
 if "subtitle_path" not in st.session_state:
     st.session_state.subtitle_path = None
 
+if "final_video_path" not in st.session_state:
+    st.session_state.final_video_path = None
+
 
 # =========================
 # Lazy Load：图片生成
 # =========================
 def generate_scene_image_lazy(scene: dict) -> str:
-    """
-    点击生成图片后再导入 Stable Diffusion，
-    避免 Streamlit 启动时立即加载重模型。
-    """
     from image_service import generate_scene_image
 
     return generate_scene_image(scene)
@@ -52,9 +51,6 @@ def generate_scene_image_lazy(scene: dict) -> str:
 # Lazy Load：TTS
 # =========================
 def generate_scene_audio_lazy(scene: dict) -> dict:
-    """
-    点击生成配音后再导入 TTS 模块。
-    """
     from tts_service import generate_scene_audio
 
     return generate_scene_audio(scene)
@@ -63,12 +59,26 @@ def generate_scene_audio_lazy(scene: dict) -> dict:
 def generate_srt_lazy(
     audio_results: list[dict],
 ) -> str:
-    """
-    根据音频真实时长生成 SRT 字幕。
-    """
     from tts_service import generate_srt
 
     return generate_srt(audio_results)
+
+
+# =========================
+# Lazy Load：视频生成
+# =========================
+def generate_final_video_lazy(
+    scene_images: dict,
+    scene_audio: dict,
+    subtitle_path: str,
+) -> str:
+    from video_service import generate_final_video
+
+    return generate_final_video(
+        scene_images=scene_images,
+        scene_audio=scene_audio,
+        subtitle_path=subtitle_path,
+    )
 
 
 # =========================
@@ -149,8 +159,7 @@ def build_storyboard_markdown(result: dict) -> str:
 st.title("🎬 AI Short Video Studio")
 
 st.caption(
-    "把一个简单创意，快速变成结构化短视频方案、"
-    "AI 视觉素材、配音与字幕。"
+    "把一个简单创意，变成完整的 AI 短视频。"
 )
 
 
@@ -222,6 +231,7 @@ if st.button(
             st.session_state.scene_images = {}
             st.session_state.scene_audio = {}
             st.session_state.subtitle_path = None
+            st.session_state.final_video_path = None
 
             st.success("生成完成！")
 
@@ -328,9 +338,7 @@ if result:
 
         else:
             progress_bar = st.progress(0)
-
             status_text = st.empty()
-
             errors = []
 
             total_scenes = len(
@@ -414,9 +422,7 @@ if result:
                             f"**镜头 "
                             f"{scene_number}**"
                         )
-                        st.code(
-                            error
-                        )
+                        st.code(error)
 
             else:
                 status_text.success(
@@ -482,9 +488,7 @@ if result:
             )
 
             status_text = st.empty()
-
             audio_results = []
-
             errors = []
 
             total_scenes = len(
@@ -538,7 +542,6 @@ if result:
                     / total_scenes
                 )
 
-            # 所有音频成功后生成字幕
             if (
                 not errors
                 and len(audio_results)
@@ -560,12 +563,12 @@ if result:
                         subtitle_path
                     )
 
-                    status_text.success(
+                    st.success(
                         "🎉 全部配音与字幕生成完成！"
                     )
 
                 except Exception as e:
-                    status_text.error(
+                    st.error(
                         "配音生成成功，"
                         "但字幕生成失败。"
                     )
@@ -595,9 +598,161 @@ if result:
                             f"{scene_number}**"
                         )
 
-                        st.code(
-                            error
-                        )
+                        st.code(error)
+
+
+    # =====================================================
+    # 最终视频
+    # =====================================================
+    st.divider()
+
+    st.subheader("🎬 最终视频")
+
+    image_ready = (
+        len(
+            [
+                path
+                for path
+                in st.session_state.scene_images.values()
+                if path
+                and Path(path).exists()
+            ]
+        )
+        == len(scenes)
+    )
+
+    audio_ready = (
+        len(
+            [
+                item
+                for item
+                in st.session_state.scene_audio.values()
+                if item.get("audio_path")
+                and Path(
+                    item.get("audio_path")
+                ).exists()
+            ]
+        )
+        == len(scenes)
+    )
+
+    subtitle_ready = (
+        st.session_state.subtitle_path
+        and Path(
+            st.session_state.subtitle_path
+        ).exists()
+    )
+
+    ready_col1, ready_col2, ready_col3 = st.columns(3)
+
+    with ready_col1:
+        if image_ready:
+            st.success("🖼️ 图片：已准备")
+        else:
+            st.warning("🖼️ 图片：未完成")
+
+    with ready_col2:
+        if audio_ready:
+            st.success("🔊 配音：已准备")
+        else:
+            st.warning("🔊 配音：未完成")
+
+    with ready_col3:
+        if subtitle_ready:
+            st.success("💬 字幕：已准备")
+        else:
+            st.warning("💬 字幕：未完成")
+
+    if st.button(
+        "🎬 生成最终视频",
+        type="primary",
+        use_container_width=True,
+        disabled=not (
+            image_ready
+            and audio_ready
+            and subtitle_ready
+        ),
+    ):
+        try:
+            with st.spinner(
+                "FFmpeg 正在合成最终视频..."
+            ):
+                final_video_path = (
+                    generate_final_video_lazy(
+                        scene_images=(
+                            st.session_state.scene_images
+                        ),
+                        scene_audio=(
+                            st.session_state.scene_audio
+                        ),
+                        subtitle_path=(
+                            st.session_state.subtitle_path
+                        ),
+                    )
+                )
+
+            st.session_state.final_video_path = (
+                final_video_path
+            )
+
+            st.success(
+                "🎉 最终视频生成成功！"
+            )
+
+        except Exception as e:
+            st.error(
+                "最终视频生成失败。"
+            )
+
+            with st.expander(
+                "查看 FFmpeg 错误"
+            ):
+                st.code(
+                    str(e)
+                )
+
+
+    # =====================================================
+    # 展示最终视频
+    # =====================================================
+    final_video_path = (
+        st.session_state.final_video_path
+    )
+
+    if final_video_path:
+
+        final_video_file = Path(
+            final_video_path
+        )
+
+        if final_video_file.exists():
+
+            st.markdown(
+                "### 🎉 成品预览"
+            )
+
+            video_bytes = (
+                final_video_file.read_bytes()
+            )
+
+            st.video(
+                video_bytes
+            )
+
+            st.caption(
+                f"视频路径："
+                f"{final_video_file}"
+            )
+
+            st.download_button(
+                label="⬇️ 下载最终 MP4",
+                data=video_bytes,
+                file_name=(
+                    final_video_file.name
+                ),
+                mime="video/mp4",
+                use_container_width=True,
+            )
 
 
     # =====================================================
@@ -655,66 +810,46 @@ if result:
                 f"### 镜头 {scene_number}"
             )
 
-            # -------------------------
-            # 画面
-            # -------------------------
             st.markdown(
                 "**🎨 画面**"
             )
-
             st.write(
                 visual
             )
 
-            # -------------------------
-            # 旁白
-            # -------------------------
             st.markdown(
                 "**🎙️ 旁白**"
             )
-
             st.write(
                 voiceover
             )
 
-            # -------------------------
-            # Sound
-            # -------------------------
             st.markdown(
                 "**🎵 音效 / BGM**"
             )
-
             st.write(
                 sound
             )
 
-            # -------------------------
-            # Image Prompt
-            # -------------------------
             st.markdown(
                 "**🖼️ Image Prompt**"
             )
-
             st.code(
                 image_prompt,
                 language="text",
             )
 
-            # -------------------------
-            # Video Prompt
-            # -------------------------
             st.markdown(
                 "**🎥 Video Prompt**"
             )
-
             st.code(
                 video_prompt,
                 language="text",
             )
 
-            # =================================================
+            # =========================
             # 图片
-            # =================================================
+            # =========================
             st.markdown(
                 "**🤖 AI 图片生成**"
             )
@@ -766,6 +901,9 @@ if result:
                     st.session_state.scene_images[
                         image_key
                     ] = image_path
+
+                    # 图片改变后旧视频失效
+                    st.session_state.final_video_path = None
 
                     st.success(
                         f"镜头 {scene_number} "
@@ -831,9 +969,9 @@ if result:
                             use_container_width=True,
                         )
 
-            # =================================================
+            # =========================
             # 音频
-            # =================================================
+            # =========================
             st.markdown(
                 "**🔊 AI 配音**"
             )
@@ -965,6 +1103,9 @@ if result:
         "subtitle_path": (
             st.session_state.subtitle_path
         ),
+        "final_video_path": (
+            st.session_state.final_video_path
+        ),
     }
 
     json_text = json.dumps(
@@ -1048,9 +1189,7 @@ if result:
 st.divider()
 
 st.caption(
-    "当前版本：V0.9 · "
-    "Ollama + Qwen3 4B + "
-    "Stable Diffusion 1.5 + "
-    "Batch Image Generation + "
-    "Edge TTS + SRT Subtitle"
+    "当前版本：V1.0 · "
+    "Topic → Script → Storyboard → "
+    "Images → Voice → Subtitle → MP4"
 )
